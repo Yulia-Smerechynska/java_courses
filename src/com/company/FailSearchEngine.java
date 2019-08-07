@@ -7,11 +7,9 @@ public class FailSearchEngine {
     private Clusterable currentCluster;
     private Servers[] currentClusterServers;
     private Servers currentServer;
-    private Node[] allServerNodes;
-    private boolean isSetNodeNumber = false;
-    private int currentNodeNumber;
+    private int failedNodeNumber = -1;
     private boolean failedNode = false;
-    private int middleServerIndex;
+    private boolean isCurrentServerHasFailedNodes = false;
 
     public FailSearchEngine(Clusterable cluster) {
         this.currentCluster = cluster;
@@ -19,155 +17,158 @@ public class FailSearchEngine {
     }
 
     public void search() {
-        do {
-            this.findFailNode();
-        } while (!this.failedNode);
-        System.out.println("Failed Server: " + this.currentServer.getNumber());
-        System.out.println("Failed Node: " + this.currentNodeNumber);
+
+        int leftServer = 0;
+        int rightServer = this.currentClusterServers.length - 1;
+        while (!this.failedNode) {
+            if (rightServer - leftServer > 1) {
+                int middleServer = (rightServer + leftServer) / 2;
+                this.findFailNode(middleServer);
+                if (this.isCurrentServerHasFailedNodes) {
+                    rightServer = middleServer;
+                } else {
+                    leftServer = middleServer;
+                }
+            } else {
+                if (!this.findFailNode(leftServer)) {
+                    this.findFailNode(rightServer);
+                }
+                this.failedNode = true;
+            }
+
+        }
+
+        if (this.failedNodeNumber == -1) {
+            System.out.println("All Nodes work fine");
+        } else {
+            System.out.println("================================");
+            System.out.println("Failed Server: " + this.currentServer.getNumber());
+            System.out.println("Failed Node: " + this.failedNodeNumber);
+        }
     }
 
     /**
      * find filed node
+     *
      * @return boolean
      */
-    private boolean findFailNode() {
-        this.getCurrentServer();
-        this.getAllNodes();
+    private boolean findFailNode(int middleServer) {
+        this.isCurrentServerHasFailedNodes = false;
+        this.currentServer = this.currentClusterServers[middleServer];
+        Node[] currentServerNodes = this.currentServer.getAllNodes();
 
         int leftBound = 0;
-        int rightBound = this.allServerNodes.length - 1;
-        int step = 0;
-        while (!this.failedNode && step < this.allServerNodes.length) {
-            step++;
-            int middleValue = (rightBound + leftBound) / 2;
-            Node middleNode = this.allServerNodes[middleValue];
-            boolean result = this.checkNode(this.currentServer.getNumber(), middleNode.getNumber());
-            if (result) {
-                if (middleValue != 0) {
-                    Node prevNode = this.allServerNodes[middleValue - 1];
-                    if (!this.checkNode(this.currentServer.getNumber(), prevNode.getNumber())) {
-                        this.failedNode = true;
+        int rightBound = currentServerNodes.length - 1;
+
+        while (!this.failedNode) {
+            if (rightBound - leftBound > 1) {
+
+                int middleValue = (rightBound + leftBound) / 2;
+                Node middleNode = currentServerNodes[middleValue];
+                boolean isFailed = this.currentCluster.isFailed(this.currentServer.getNumber(), middleNode.getNumber());
+
+                if (isFailed) {
+                    this.isCurrentServerHasFailedNodes = true;
+                    boolean isPrevNodeActive = this.isPrevNodeActive(this.currentServer.getNumber(), middleNode.getNumber());
+                    if (isPrevNodeActive) {
                         this.setFailedNodeNumber(middleNode.getNumber());
                         break;
                     } else {
-                        rightBound = prevNode.getNumber();
+                        rightBound = middleValue;
                     }
+
                 } else {
-                    if (this.currentServer.getNumber() != 0) {
-                        Servers prevServer = this.currentCluster.getServers()[this.currentServer.getNumber() - 1];
-                        Node[] prevServerNodes = prevServer.getAllNodes();
-                        if (!this.checkNode(prevServer.getNumber(), prevServerNodes[prevServerNodes.length - 1].getNumber())) {
-                            this.failedNode = true;
-                            this.setFailedNodeNumber(middleNode.getNumber());
-                            break;
-                        }
-                    }
+                    leftBound = middleValue;
                 }
+
             } else {
-                leftBound = middleValue + 1;
+                return this.checkNeighbours(leftBound, rightBound);
             }
         }
-
-        if (this.failedNode) {
-            return true;
-        } else {
-            this.cutServersFrom();
-            this.findFailNode();
-            return false;
-        }
+        return this.failedNode;
     }
 
     /**
-     * check if node is fail
-     * @param serverNumber int
-     * @param nodeNumber int
+     * check last two closest nodes
+     *
+     * @param leftBound int
+     * @param rightBound int
      * @return boolean
      */
-    private boolean checkNode(int serverNumber, int nodeNumber) {
-        if (this.currentCluster.isFailed(serverNumber, nodeNumber)) {
-            if (nodeNumber != 0) {
-                return true;
-            } else {
-                Servers previousServer = this.getPreviousServer();
-                Node[] prevServerNodes = previousServer.getAllNodes();
+    private boolean checkNeighbours(int leftBound, int rightBound) {
 
-                if (this.currentServer.getNumber() == 0) {
-                    this.failedNode = true;
-                    this.setFailedNodeNumber(nodeNumber);
-                    return true;
-                }
+        boolean isFirstFailed = this.currentCluster.isFailed(this.currentServer.getNumber(), leftBound);
+        boolean isSecondFailed = this.currentCluster.isFailed(this.currentServer.getNumber(), rightBound);
 
-                Node lastNode = prevServerNodes[prevServerNodes.length - 1];
-                if (lastNode.getStatus().equals(Node.ACTIVE)) {
-                    this.failedNode = true;
-                    this.setFailedNodeNumber(nodeNumber);
-                    return true;
-                } else {
-                    this.cutServersTo();
-                    this.findFailNode();
-                    return false;
-                }
-            }
+        if (isFirstFailed && this.currentServer.getNumber() == 0) {
+            this.setFailedNodeNumber(leftBound);
+            return true;
+        }
+
+        if (!isFirstFailed && isSecondFailed) {
+            this.setFailedNodeNumber(rightBound);
+            return true;
+        }
+
+        if (isFirstFailed && !isSecondFailed) {
+            this.setFailedNodeNumber(leftBound);
+            return true;
+        }
+
+        if (isFirstFailed && isSecondFailed) {
+            return this.isPrevNodeActive(this.currentServer.getNumber(), leftBound);
         }
         return false;
     }
 
     /**
-     * set failed node number
-     * @param nodeNumber int
+     * check if node is active
+     *
+     * @param serverNumber int
+     * @param nodeNumber   int
+     * @return boolean
      */
-    private void setFailedNodeNumber(int nodeNumber) {
-        if (!this.isSetNodeNumber) {
-            this.isSetNodeNumber = true;
-            this.currentNodeNumber = nodeNumber;
+    private boolean isPrevNodeActive(int serverNumber, int nodeNumber) {
+        if (nodeNumber == 0) {
+            Servers previousServer = this.getPreviousServer(serverNumber);
+            Node[] prevServerNodes = previousServer.getAllNodes();
+            Node lastNode = prevServerNodes[prevServerNodes.length - 1];
+            if (lastNode.getStatus().equals(Node.ACTIVE)) {
+                this.setFailedNodeNumber(nodeNumber);
+                return true;
+            } else {
+                return false;
+            }
+        } else {
+            int prevNodeNumber = nodeNumber - 1;
+            if (this.currentServer.getAllNodes()[prevNodeNumber].getStatus().equals(Node.ACTIVE)) {
+                this.setFailedNodeNumber(nodeNumber);
+                return false;
+            } else {
+                return false;
+            }
         }
     }
 
     /**
-     * copy range of the servers array elements
+     * set failed node number
+     *
+     * @param nodeNumber int
      */
-    private void cutServersTo() {
-        this.middleServerIndex = this.middleServerIndex == 1 ? this.middleServerIndex : this.middleServerIndex + 1;
-        this.currentClusterServers = Arrays.copyOfRange(this.currentClusterServers, 0, this.middleServerIndex);
+    private void setFailedNodeNumber(int nodeNumber) {
+        this.failedNode = true;
+        this.failedNodeNumber = nodeNumber;
     }
 
-    /**
-     * copy range of the servers array elements
-     */
-    private void cutServersFrom() {
-        this.middleServerIndex = this.middleServerIndex == 1 ? this.middleServerIndex : this.middleServerIndex - 1;
-        this.currentClusterServers = Arrays.copyOfRange(this.currentClusterServers, this.middleServerIndex, this.currentClusterServers.length);
-    }
-
-    /**
-     * get all nodes of the current server
-     */
-    private void getAllNodes() {
-        this.allServerNodes = currentServer.getAllNodes();
-    }
-
-    /**
-     * get current server
-     */
-    private void getCurrentServer() {
-        this.getMiddleElement();
-        this.currentServer = this.currentClusterServers[this.middleServerIndex];
-    }
 
     /**
      * get previous server
+     *
      * @return Servers
      */
-    private Servers getPreviousServer() {
-        this.middleServerIndex = this.middleServerIndex > 1 ? this.middleServerIndex - 1 : 0;
-        return this.currentClusterServers[this.middleServerIndex];
-    }
-
-    /**
-     * get middle element index of the current cluster servers
-     */
-    private void getMiddleElement() {
-        this.middleServerIndex = Math.round(this.currentClusterServers.length / 2);
+    private Servers getPreviousServer(int serverNumber) {
+        serverNumber = serverNumber > 1 ? serverNumber - 1 : 0;
+        return this.currentClusterServers[serverNumber];
     }
 
     /**
