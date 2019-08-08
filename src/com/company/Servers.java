@@ -1,15 +1,19 @@
 package com.company;
 
+import java.util.ArrayList;
+import java.util.NoSuchElementException;
+import java.util.Random;
+
 public class Servers implements Countable {
     private int number;
-    private Node[] nodes;
+    private ArrayList<Optional<Node>> nodes = new ArrayList<>();
 
     public Servers(int internalNumber, int countOfNodes) {
         this.number = internalNumber;
-        this.nodes = new Node[countOfNodes];
 
         for (int i = 0; i < countOfNodes; i++) {
-            this.nodes[i] = new Node(i);
+            Random r = new Random();
+            this.nodes.add(new Optional<>(r.nextBoolean() ? new Node(i) : null));
         }
     }
 
@@ -22,10 +26,18 @@ public class Servers implements Countable {
     }
 
     /**
-     * get all server nodes
-     * @return Node[]
+     * get active server nodes
+     * @return ArrayList<Optional<Node>>
      */
-    public Node[] getAllNodes() {
-        return this.nodes;
+    public ArrayList<Optional<Node>> getAllNodes() {
+        ArrayList<Optional<Node>> realNodes = new ArrayList<>();
+        for (Optional<Node> node: this.nodes) {
+            try {
+                node.get();
+                realNodes.add(node);
+            } catch (NoSuchElementException e) {
+            }
+        }
+        return realNodes;
     }
 }
