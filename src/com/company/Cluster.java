@@ -9,11 +9,23 @@ public class Cluster implements Clusterable {
     private ArrayList<Optional<Servers>> servers = new ArrayList<>();
 
     public Cluster(int countOfServers) {
-
+        ArrayList<Optional<Servers>> temporaryServers = new ArrayList<>();
         for (int i = 0; i < countOfServers; i++) {
-            Optional<Servers> server = new Optional<>(new Servers(i, 10));
-            this.servers.add(server);
+            Random r = new Random();
+            temporaryServers.add(new Optional<>(r.nextBoolean() ? new Servers(i, 10) : null));
         }
+
+        for (Optional<Servers> temporaryServer : temporaryServers) {
+            try {
+                if (temporaryServer.isPresent()) servers.add(temporaryServer);
+            } catch (NoSuchElementException e) {
+            }
+        }
+
+        if (this.servers.size() == 0) {
+            new Cluster(countOfServers);
+        }
+
     }
 
     public ArrayList<Optional<Servers>> getServers() {
@@ -22,8 +34,9 @@ public class Cluster implements Clusterable {
 
     /**
      * check if node failed
+     *
      * @param serverNumber int
-     * @param nodeNumber int
+     * @param nodeNumber   int
      * @return boolean
      */
     public boolean isFailed(int serverNumber, int nodeNumber) {
@@ -35,14 +48,14 @@ public class Cluster implements Clusterable {
      * set "failed" to default node status and for all nodes in front
      */
     public void sendMessage() throws NullPointerException {
-        Servers randomServer = this.getRandomServer();
+        Optional<Servers> randomServer = this.getRandomServer();
         ArrayList<Optional<Node>> randomServerNodes;
         try {
-            randomServerNodes = randomServer.getAllNodes();
+            randomServerNodes = randomServer.get().getAllNodes();
         } catch (NoSuchElementException e) {
             return;
         }
-        if(randomServerNodes.size() > 0) {
+        if (randomServerNodes.size() > 0) {
             Optional<Node> randomNode = this.getRandomNode(randomServerNodes);
             int randomNodeNumber = -1;
             try {
@@ -58,16 +71,16 @@ public class Cluster implements Clusterable {
                 }
             }
 
-            System.out.println("Set failed Server number: " + randomServer.getNumber());
+            System.out.println("Set failed Server number: " + randomServer.get().getNumber());
             System.out.println("Set failed Node index: " + randomNodeNumber);
 
-            for (int i = randomServer.getNumber() + 1; i < this.servers.size(); i++) {
+            for (int i = this.servers.indexOf(randomServer) + 1; i < this.servers.size(); i++) {
                 ArrayList<Optional<Node>> currentServerNodes = new ArrayList<Optional<Node>>();
                 try {
                     currentServerNodes = this.servers.get(i).get().getAllNodes();
                 } catch (NoSuchElementException e) {
                 }
-                if(currentServerNodes.size() > 0) {
+                if (currentServerNodes.size() > 0) {
                     for (Optional<Node> currentNode : currentServerNodes) {
                         try {
                             currentNode.get().setStatus(false);
@@ -81,33 +94,37 @@ public class Cluster implements Clusterable {
 
     /**
      * get random server
+     *
      * @return array Servers[]
      */
-    private Servers getRandomServer() {
+    private Optional<Servers> getRandomServer() {
         Random random = new Random();
         int randomServerNumber = random.nextInt(this.servers.size());
-        try{
-            this.servers.get(randomServerNumber).get();
+        try {
+            return this.servers.get(randomServerNumber).isPresent() && this.servers.get(randomServerNumber).get().getAllNodes().size() > 0
+                    ? this.servers.get(randomServerNumber) :
+                    this.getRandomServer();
         } catch (NoSuchElementException e) {
             return this.getRandomServer();
         }
-        return this.servers.get(randomServerNumber).get();
     }
 
     /**
      * get random node from the random server
-     * @param currentServerNodes Node[]
+     *
+     * @param currentServerNodes Optional<Node>
      * @return Node node
      */
     private Optional<Node> getRandomNode(ArrayList<Optional<Node>> currentServerNodes) {
         Random random = new Random();
         int randomNodeNumber = random.nextInt(currentServerNodes.size());
-        try{
-            currentServerNodes.get(randomNodeNumber).get();
+
+        try {
+            return currentServerNodes.get(randomNodeNumber).isPresent() ? currentServerNodes.get(randomNodeNumber) : this.getRandomNode(currentServerNodes);
         } catch (NoSuchElementException e) {
             return this.getRandomNode(currentServerNodes);
         }
-        return currentServerNodes.get(randomNodeNumber);
+
     }
 
 }

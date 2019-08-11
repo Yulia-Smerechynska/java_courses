@@ -10,7 +10,11 @@ public class Optional<T> {
     }
 
     public T get() throws NoSuchElementException {
-        if(this.value == null) throw new NoSuchElementException("element not exist");
+        if (this.value == null) throw new NoSuchElementException("element not exist");
         return this.value;
+    }
+
+    public boolean isPresent() {
+        return this.value != null;
     }
 }

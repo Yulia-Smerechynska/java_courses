@@ -27,14 +27,13 @@ public class Servers implements Countable {
 
     /**
      * get active server nodes
-     * @return ArrayList<Optional<Node>>
+     * @return ArrayList<Optional < Node>>
      */
     public ArrayList<Optional<Node>> getAllNodes() {
         ArrayList<Optional<Node>> realNodes = new ArrayList<>();
-        for (Optional<Node> node: this.nodes) {
+        for (Optional<Node> node : this.nodes) {
             try {
-                node.get();
-                realNodes.add(node);
+                if (node.isPresent()) realNodes.add(node);
             } catch (NoSuchElementException e) {
             }
         }

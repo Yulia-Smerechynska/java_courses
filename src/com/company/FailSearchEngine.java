@@ -7,6 +7,7 @@ import java.util.NoSuchElementException;
 public class FailSearchEngine {
 
     private Clusterable currentCluster;
+    private Optional<Servers> currentServerPosition;
     private ArrayList<Optional<Servers>> currentClusterServers;
     private Servers currentServer;
     private int failedNodeNumber = -1;
@@ -55,6 +56,7 @@ public class FailSearchEngine {
      * @return boolean
      */
     private boolean findFailNode(int middleServer) throws NoSuchElementException {
+        this.currentServerPosition = this.currentClusterServers.get(middleServer);
         this.isCurrentServerHasFailedNodes = false;
         try {
             this.currentServer = this.currentClusterServers.get(middleServer).get();
@@ -80,10 +82,10 @@ public class FailSearchEngine {
                     return false;
                 }
 
-                boolean isFailed = this.currentCluster.isFailed(this.currentServer.getNumber(), currentServerNodes.indexOf(middleNodes));
+                boolean isFailed = this.currentCluster.isFailed(this.currentClusterServers.indexOf(this.currentServerPosition), currentServerNodes.indexOf(middleNodes));
                 if (isFailed) {
                     this.isCurrentServerHasFailedNodes = true;
-                    boolean isPrevNodeActive = this.isPrevNodeActive(this.currentServer.getNumber(), currentServerNodes.indexOf(middleNodes));
+                    boolean isPrevNodeActive = this.isPrevNodeActive(this.currentClusterServers.indexOf(this.currentServerPosition), currentServerNodes.indexOf(middleNodes));
                     if (isPrevNodeActive) {
                         this.setFailedNodeNumber(middleNode.getNumber());
                         break;
@@ -105,42 +107,45 @@ public class FailSearchEngine {
     /**
      * check last two closest nodes
      *
-     * @param leftBound int
+     * @param leftBound  int
      * @param rightBound int
      * @return boolean
      */
     private boolean checkNeighbours(int leftBound, int rightBound) {
 
         Optional<Node> leftBoundNodes;
-        Optional<Node> rightBoundNodes;
         ArrayList<Optional<Node>> currentServerNodes;
         try {
             currentServerNodes = this.currentServer.getAllNodes();
             leftBoundNodes = currentServerNodes.get(leftBound);
-            rightBoundNodes = currentServerNodes.get(rightBound);
         } catch (NoSuchElementException e) {
             return false;
         }
 
-        boolean isFirstFailed = this.currentCluster.isFailed(this.currentServer.getNumber(), currentServerNodes.indexOf(leftBoundNodes));
-        boolean isSecondFailed = this.currentCluster.isFailed(this.currentServer.getNumber(), currentServerNodes.indexOf(rightBoundNodes));
-        if (isFirstFailed && this.currentServer.getNumber() == 0) {
+        int currentServerIndex = this.currentClusterServers.indexOf(this.currentServerPosition);
+        boolean isFirstFailed = this.currentCluster.isFailed(currentServerIndex, leftBound);
+        boolean isSecondFailed = this.currentCluster.isFailed(currentServerIndex, rightBound);
+        if (isFirstFailed && currentServerIndex == 0) {
+            this.isCurrentServerHasFailedNodes = true;
             this.setFailedNodeNumber(leftBound);
             return true;
         }
 
         if (!isFirstFailed && isSecondFailed) {
+            this.isCurrentServerHasFailedNodes = true;
             this.setFailedNodeNumber(rightBound);
             return true;
         }
 
         if (isFirstFailed && !isSecondFailed) {
+            this.isCurrentServerHasFailedNodes = true;
             this.setFailedNodeNumber(leftBound);
             return true;
         }
 
         if (isFirstFailed && isSecondFailed) {
-            return this.isPrevNodeActive(this.currentServer.getNumber(), currentServerNodes.indexOf(leftBoundNodes));
+            this.isCurrentServerHasFailedNodes = true;
+            return this.isPrevNodeActive(this.currentClusterServers.indexOf(this.currentServerPosition), currentServerNodes.indexOf(leftBoundNodes));
         }
         return false;
     }
@@ -154,7 +159,7 @@ public class FailSearchEngine {
      */
     private boolean isPrevNodeActive(int serverNumber, int nodeNumber) {
         if (nodeNumber == 0) {
-            Optional<Servers> previousServer = this.getPreviousServer(serverNumber);
+            Optional<Servers> previousServer = this.getPreviousServer(this.currentClusterServers.indexOf(this.currentServerPosition));
             Servers prevServer = previousServer.get();
             ArrayList<Optional<Node>> prevServerNodes = prevServer.getAllNodes();
             int lastNodePosition = prevServerNodes.size() - 1;
