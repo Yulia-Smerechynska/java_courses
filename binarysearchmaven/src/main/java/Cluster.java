@@ -45,13 +45,15 @@ public class Cluster implements Clusterable {
     /**
      * set "failed" to default node status and for all nodes in front
      */
-    public void sendMessage() throws NullPointerException {
+    public ArrayList<Integer> sendMessage() throws NullPointerException {
+        ArrayList<Integer> errorsWasSet = new ArrayList<Integer>();
+
         Optional<Servers> randomServer = this.getRandomServer();
         ArrayList<Optional<Node>> randomServerNodes;
         try {
             randomServerNodes = randomServer.get().getAllNodes();
         } catch (NoSuchElementException e) {
-            return;
+            return errorsWasSet;
         }
         if (randomServerNodes.size() > 0) {
             Optional<Node> randomNode = this.getRandomNode(randomServerNodes);
@@ -59,7 +61,7 @@ public class Cluster implements Clusterable {
             try {
                 randomNodeNumber = randomServerNodes.indexOf(randomNode);
             } catch (NoSuchElementException e) {
-                return;
+                return errorsWasSet;
             }
 
             for (int k = randomNodeNumber; k < randomServerNodes.size(); k++) {
@@ -71,6 +73,8 @@ public class Cluster implements Clusterable {
 
             System.out.println("Set failed Server number: " + randomServer.get().getNumber());
             System.out.println("Set failed Node index: " + randomNodeNumber);
+            errorsWasSet.add(randomServer.get().getNumber());
+            errorsWasSet.add(randomNodeNumber);
 
             for (int i = this.servers.indexOf(randomServer) + 1; i < this.servers.size(); i++) {
                 ArrayList<Optional<Node>> currentServerNodes = new ArrayList<Optional<Node>>();
@@ -88,6 +92,8 @@ public class Cluster implements Clusterable {
                 }
             }
         }
+
+        return errorsWasSet;
     }
 
     /**
@@ -95,7 +101,7 @@ public class Cluster implements Clusterable {
      *
      * @return array Servers[]
      */
-    private Optional<Servers> getRandomServer() {
+    public Optional<Servers> getRandomServer() {
         Random random = new Random();
         int randomServerNumber = random.nextInt(this.servers.size());
         try {
@@ -113,7 +119,7 @@ public class Cluster implements Clusterable {
      * @param currentServerNodes Optional<Node>
      * @return Node node
      */
-    private Optional<Node> getRandomNode(ArrayList<Optional<Node>> currentServerNodes) {
+    public Optional<Node> getRandomNode(ArrayList<Optional<Node>> currentServerNodes) {
         Random random = new Random();
         int randomNodeNumber = random.nextInt(currentServerNodes.size());
 
