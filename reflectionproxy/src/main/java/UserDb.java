@@ -4,9 +4,8 @@ import java.sql.*;
 import java.util.ArrayList;
 
 public class UserDb {
-    private String tets = "dsdsd";
+
     public void setNewUser(String name, int age) throws SQLException {
-        System.out.println("11111");
         String createUseSQL = "INSERT INTO table_test (name, age) VALUE ('" + name + "', '"+ age +"')";
         Connection connection = null;
         Statement statement;
@@ -27,11 +26,6 @@ public class UserDb {
             }
         }
     }
-
-    public void test() {
-        System.out.println("333");
-    }
-
 
     public static ArrayList<String> getUsersNames() throws SQLException, ClassNotFoundException {
         String getUserDataSql = "SELECT * FROM table_test";
