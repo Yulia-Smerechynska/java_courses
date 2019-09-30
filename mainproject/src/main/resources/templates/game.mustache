@@ -1,0 +1,120 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <style>
+        .playGround {
+            margin: 20px;
+        }
+
+        .row {
+            display: flex;
+            width: 500px;
+            justify-content: space-between;
+            margin: 10px;
+        }
+
+        .card {
+            margin: 10px;
+            width: 200px;
+            height: 200px;
+            display: flex;
+            align-items: center;
+            border: 1px solid #cccccc;
+        }
+    </style>
+
+    <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.11.0/jquery.min.js"></script>
+    <title>Getting Started: Serving Web Content</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+</head>
+<body>
+<div>Hello, {{name}}</div>
+
+<!--need to made card blocks count changeble-->
+<div class="playGround">
+    <span>Image need to be selected:</span>
+    <div class="card main-image"></div>
+
+    <div class="row">
+        <div class="card selectable item_0" id="item_0"></div>
+        <div class="card selectable item_1" id="item_1"></div>
+        <div class="card selectable item_2" id="item_2"></div>
+    </div>
+    <div class="row">
+        <div class="card selectable item_3" id="item_3"></div>
+        <div class="card selectable item_4" id="item_4"></div>
+        <div class="card selectable item_5" id="item_5"></div>
+    </div>
+    <div class="row">
+        <div class="card selectable item_6" id="item_6"></div>
+        <div class="card selectable item_7" id="item_7"></div>
+        <div class="card selectable item_8" id="item_8"></div>
+    </div>
+    <button type="button" class="submit">Approve</button>
+</div>
+
+
+</body>
+<script type="text/javascript">
+    jQuery(document).ready(function () {
+        jQuery.ajax({
+            method: "GET",
+            url: "/getStartCards",
+            dataType: "html"
+        })
+                .done(function (msg) {
+                    var selectedItems = {};
+                    var data = JSON.parse(msg);
+
+                    jQuery(".submit").on("click", function (e) {
+                        var countOfSelectedItems = Object.keys(selectedItems).length;
+                        var matchCount = data[0].matchCount;
+                        switch (true) {
+                            case countOfSelectedItems == matchCount:
+                                jQuery.ajax({
+                                    method: "POST",
+                                    url: "/makeStep",
+                                    contentType: "application/json; charset=utf-8",
+                                    cache: false,
+                                    processData: false,
+                                    data: JSON.stringify(selectedItems),
+                                    success: function (resposeJsonObject) {
+                                        alert(resposeJsonObject)
+                                        // run next step
+                                    }
+                                });
+                                break;
+                            case countOfSelectedItems < matchCount:
+                                alert("select more");
+                                break;
+                            case countOfSelectedItems > matchCount:
+                                alert("to mutch, should be: " + matchCount);
+                                break;
+                        }
+
+                    });
+
+                    for (i = 0; i < data.length; i++) {
+                        jQuery(".item_" + data[i].id).append("<img src=" + data[i].image + ">").attr("name", data[i].name);
+                        var mainImageBlock = jQuery(".main-image");
+                        if (data[i].isMain && !mainImageBlock.find("img").length) {
+                            mainImageBlock.append("<img src=" + data[i].image + ">");
+                        }
+                    }
+
+                    jQuery(document).on("click", ".selectable", function (e) {
+                        var currentElement = jQuery(this);
+                        var elementId = currentElement.attr("id");
+                        var imageName = currentElement.attr("name");
+                        if (!(elementId in selectedItems)) {
+                            selectedItems[elementId] = imageName;
+                            currentElement.css("box-shadow", "0px 0px 5px 5px rgba(9,100,235,1)");
+                        } else {
+                            delete selectedItems[elementId];
+                            currentElement.css("box-shadow", "0px 0px 5px -5px rgba(9,100,235,1)");
+                        }
+                    })
+                });
+    });
+</script>
+</html>
